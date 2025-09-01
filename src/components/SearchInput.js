@@ -9,7 +9,7 @@ const SearchInput = ({ searchTerm, setSearchTerm }) => {
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         style={{
-          width: "100%",
+          width: "75%",
           padding: "10px",
           borderRadius: "4px",
           border: "1px solid #ddd",

@@ -1,8 +1,65 @@
 // src/components/TodoItem.js
 
-import React from "react";
+import React, { useState } from "react"; // --- Impor useState ---
 
-const TodoItem = ({ todo, onToggleCompleted, onDeleteTodo }) => {
+// --- Terima prop onUpdateTodo ---
+const TodoItem = ({ todo, onToggleCompleted, onDeleteTodo, onUpdateTodo }) => {
+  // --- STATE LOKAL UNTUK MODE EDIT ---
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTask, setEditedTask] = useState(todo.task);
+
+  // --- FUNGSI UNTUK MENYIMPAN PERUBAHAN ---
+  const handleSave = () => {
+    if (editedTask.trim()) {
+      onUpdateTodo(todo.id, editedTask);
+      setIsEditing(false); // Keluar dari mode edit setelah menyimpan
+    }
+  };
+
+  // --- JIKA DALAM MODE EDIT ---
+  if (isEditing) {
+    return (
+      <li
+        style={{
+          marginBottom: "10px",
+          border: "1px solid gold",
+          padding: "10px",
+          borderRadius: "8px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <input
+          type="text"
+          value={editedTask}
+          onChange={(e) => setEditedTask(e.target.value)}
+          style={{
+            flexGrow: 1,
+            marginRight: "10px",
+            padding: "8px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+          }}
+        />
+        <button
+          onClick={handleSave}
+          style={{
+            padding: "5px 10px",
+            borderRadius: "4px",
+            backgroundColor: "lightgreen",
+            color: "#282c34",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          Simpan
+        </button>
+      </li>
+    );
+  }
+
+  // --- TAMPILAN NORMAL (JIKA TIDAK DALAM MODE EDIT) ---
   return (
     <li
       style={{
@@ -33,6 +90,7 @@ const TodoItem = ({ todo, onToggleCompleted, onDeleteTodo }) => {
           {todo.task}
         </h3>
         <div style={{ display: "flex", gap: "5px" }}>
+          {/* Button Selesai */}
           <button
             onClick={() => onToggleCompleted(todo.id, todo.completed)}
             style={{
@@ -46,6 +104,24 @@ const TodoItem = ({ todo, onToggleCompleted, onDeleteTodo }) => {
           >
             {todo.completed ? "Belum Selesai" : "Selesai"}
           </button>
+
+          {/* Button Edit */}
+          <button
+            // --- UBAH onClick UNTUK MASUK MODE EDIT ---
+            onClick={() => setIsEditing(true)}
+            style={{
+              padding: "5px 10px",
+              borderRadius: "4px",
+              backgroundColor: "gold",
+              color: "#282c34",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Edit
+          </button>
+
+          {/* Button Hapus */}
           <button
             onClick={() => onDeleteTodo(todo.id)}
             style={{
