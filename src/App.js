@@ -2,7 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"; 
 import HomePage from "./pages/Home/HomePage"; 
 import TodoPage from "./pages/Todo/TodoPage"; 
-import LoginPage from "./pages/Login/loginPage"; // <-- Impor halaman login 
+import LoginPage from "./pages/Login/LoginPage.js"; // <-- Impor halaman login 
 import "./App.css"; 
  
 function App() { 
