@@ -1,51 +1,43 @@
+// src/pages/TodoPage.js
+
 import React, { useState, useEffect, useCallback } from "react";
 import TodoForm from "../../components/TodoForm.js";
 import TodoList from "../../components/TodoList.js";
 import SearchInput from "../../components/SearchInput.js";
+import authFetch from "../../utils/authFetch.js";
+import { Link } from "react-router-dom";
 
 const TodoPage = () => {
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [editTodo, setEditTodo] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [noResults, setNoResults] = useState(false);
+  // ... (fetchTodos, handleAddTodo, handleDeleteTodo tetap sama) ...
 
   const fetchTodos = useCallback((searchQuery) => {
     setLoading(true);
-    setNoResults(false);
     const url = searchQuery
       ? `/api/todos?search=${encodeURIComponent(searchQuery)}`
       : "/api/todos";
 
-    fetch(url)
+    authFetch(url)
       .then((response) => {
-        if (!response.ok) {
+        if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
-        }
         return response.json();
       })
       .then((data) => {
-        // Pastikan kita mendapatkan array dari response
-        const todosData = Array.isArray(data) ? data : (data.todos || []);
-        setTodos(todosData);
+        setTodos(data.todos);
         setError(null);
-        
-        // Tampilkan pesan tidak ditemukan hanya jika sedang mencari dan tidak ada hasil
-        if (searchQuery && todosData.length === 0) {
-          setNoResults(true);
-        } else {
-          setNoResults(false);
-        }
       })
       .catch((err) => {
         setError(err.message);
         setTodos([]);
-        setNoResults(searchQuery ? true : false);
       })
       .finally(() => setLoading(false));
   }, []);
 
+  // useEffect untuk debounce pencarian tidak berubah
   useEffect(() => {
     const timerId = setTimeout(() => {
       fetchTodos(searchTerm);
@@ -54,104 +46,41 @@ const TodoPage = () => {
   }, [searchTerm, fetchTodos]);
 
   const handleAddTodo = (task) => {
-    if (editTodo) {
-      // mode edit
-      fetch(`/api/todos/${editTodo.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ task }),
+    authFetch("/api/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ task }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        setTodos([
+          ...todos,
+          { id: data.id, task: data.task, completed: false },
+        ]);
       })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then((updatedTodo) => {
-          setTodos(
-            todos.map((todo) =>
-              todo.id === editTodo.id
-                ? { ...todo, task: updatedTodo.task || task }
-                : todo
-            )
-          );
-          setEditTodo(null);
-          // Refresh daftar todo setelah edit
-          fetchTodos(searchTerm);
-        })
-        .catch((err) => {
-          console.error("Error updating todo:", err);
-          setError("Gagal mengupdate todo: " + err.message);
-        });
-    } else {
-      // mode tambah
-      fetch("/api/todos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ task }),
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then((newTodo) => {
-          setTodos([
-            ...todos,
-            { 
-              id: newTodo.id || Date.now(), 
-              task: newTodo.task || task, 
-              completed: newTodo.completed || false 
-            },
-          ]);
-          setNoResults(false);
-        })
-        .catch((err) => {
-          console.error("Error adding todo:", err);
-          setError("Gagal menambahkan todo: " + err.message);
-        });
-    }
+      .catch((err) => console.error("Error adding todo:", err));
   };
 
   const handleDeleteTodo = (id) => {
-    fetch(`/api/todos/${id}`, {
+    authFetch(`/api/todos/${id}`, {
       method: "DELETE",
     })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+      .then(() => {
         setTodos(todos.filter((todo) => todo.id !== id));
-        // Jika semua todo dihapus dan sedang dalam mode pencarian, tampilkan pesan tidak ditemukan
-        if (searchTerm && todos.length === 1) {
-          setNoResults(true);
-        }
       })
-      .catch((err) => {
-        console.error("Error deleting todo:", err);
-        setError("Gagal menghapus todo: " + err.message);
-      });
+      .catch((err) => console.error("Error deleting todo:", err));
   };
 
   const handleToggleCompleted = (id, completed) => {
-    fetch(`/api/todos/${id}`, {
+    authFetch(`/api/todos/${id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ completed: !completed }),
     })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
       .then(() => {
         setTodos(
           todos.map((todo) =>
@@ -159,19 +88,53 @@ const TodoPage = () => {
           )
         );
       })
-      .catch((err) => {
-        console.error("Error updating todo:", err);
-        setError("Gagal mengupdate status todo: " + err.message);
-      });
+      .catch((err) => console.error("Error updating todo:", err));
+  };
+  
+  // --- FUNGSI BARU UNTUK UPDATE TUGAS ---
+  const handleUpdateTodo = (id, newTask) => {
+    authFetch(`/api/todos/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ task: newTask }),
+    })
+      .then(() => {
+        setTodos(
+          todos.map((todo) =>
+            todo.id === id ? { ...todo, task: newTask } : todo
+          )
+        );
+      })
+      .catch((err) => console.error("Error updating todo:", err));
   };
 
-  const handleEditTodo = (todo) => {
-    setEditTodo(todo);
-  };
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: "20px" }}>Loading...</div>;
+    return <div style={{ textAlign: "center" }}>Loading...</div>;
   }
+
+  if (error) {
+    return (
+      <div style={{ textAlign: "center", color: "red" }}>Error: {error}</div>
+    );
+  }
+
+  const backButtonStyle = {
+    display: 'inline-block', // Agar bisa diberi margin dan padding
+    padding: "8px 16px",
+    fontSize: "1em",
+    marginTop: "20px", // Jarak dari atas halaman
+    marginBottom: "20px", // Jarak ke header di bawahnya
+    backgroundColor: "#6c757d", // Warna abu-abu agar berbeda
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
+    textDecoration: "none",
+    alignSelf: 'flex-start' // Posisikan di awal (kiri)
+  };
 
   return (
     <div
@@ -182,49 +145,21 @@ const TodoPage = () => {
         fontFamily: "sans-serif",
       }}
     >
+      <Link to="/home" style={backButtonStyle}>
+        Back
+      </Link>
       <header style={{ textAlign: "center" }}>
         <h1>Aplikasi Todo List</h1>
-
+        <TodoForm onAddTodo={handleAddTodo} />
         <SearchInput searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-
-        <TodoForm
-          onAddTodo={handleAddTodo}
-          editTodo={editTodo}
-        />
-        
         <h2>Daftar Tugas Anda</h2>
-        
-        {error && (
-          <div style={{ 
-            textAlign: "center", 
-            color: "red", 
-            margin: "10px 0",
-            padding: "10px",
-            backgroundColor: "#ffe6e6",
-            borderRadius: "5px"
-          }}>
-            Error: {error}
-          </div>
-        )}
-        
-        {noResults ? (
-          <div style={{ 
-            textAlign: "center", 
-            padding: "40px", 
-            color: "#666",
-            fontStyle: "italic",
-            fontSize: "18px"
-          }}>
-            Data tidak ditemukan
-          </div>
-        ) : (
-          <TodoList
-            todos={todos}
-            onToggleCompleted={handleToggleCompleted}
-            onDeleteTodo={handleDeleteTodo}
-            onEditTodo={handleEditTodo}
-          />
-        )}
+        <TodoList
+          todos={todos}
+          onToggleCompleted={handleToggleCompleted}
+          onDeleteTodo={handleDeleteTodo}
+          // --- PASS FUNGSI UPDATE BARU ---
+          onUpdateTodo={handleUpdateTodo}
+        />
       </header>
     </div>
   );
